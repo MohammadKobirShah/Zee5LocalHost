@@ -36,8 +36,8 @@ cd ~
 
 2. Clone your repo (example: `zee5-proxy-railway`):
 ```bash
-git clone https://github.com/YOURUSER/zee5-proxy-railway.git
-cd zee5-proxy-railway
+git clone https://github.com/MohammadKobirShah/Zee5LocalHost.git
+cd Zee5LocalHost
 ```
 
 > Replace `YOURUSER` with your GitHub username.
@@ -84,7 +84,7 @@ crontab -e
 
 2. Add this line (every hour):
 ```bash
-0 * * * * cd /root/zee5-proxy-railway && git pull -q
+0 * * * * cd /root/Zee5LocalHost && git pull -q
 ```
 
 Save & exit (CTRL+O then ENTER, CTRL+X for nano).  
@@ -99,7 +99,7 @@ Instead of keeping `python3 app.py` open, use **systemd service** so it runs eve
 
 1. Create service file:
 ```bash
-sudo nano /etc/systemd/system/zee5-proxy.service
+sudo nano /etc/systemd/system/Zee5LocalHost.service
 ```
 
 2. Paste this:
@@ -110,8 +110,8 @@ Description=Zee5 Proxy Flask App
 After=network.target
 
 [Service]
-WorkingDirectory=/root/zee5-proxy-railway
-ExecStart=/usr/bin/python3 /root/zee5-proxy-railway/app.py
+WorkingDirectory=/root/Zee5LocalHost
+ExecStart=/usr/bin/python3 /root/Zee5LocalHost/app.py
 Restart=always
 User=root
 
@@ -123,13 +123,13 @@ WantedBy=multi-user.target
 
 4. Enable and start:
 ```bash
-sudo systemctl enable zee5-proxy
-sudo systemctl start zee5-proxy
+sudo systemctl enable Zee5LocalHost
+sudo systemctl start Zee5LocalHost
 ```
 
 5. Check if working:
 ```bash
-sudo systemctl status zee5-proxy
+sudo systemctl status Zee5LocalHost
 ```
 
 ✅ Your proxy is always running now.
