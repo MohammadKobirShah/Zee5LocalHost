@@ -1,0 +1,32 @@
+name: Fetch and Extract Cookies
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:       # Allow manual trigger
+
+jobs:
+  fetch-extract:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Fetch M3U file
+      id: fetch
+      run: |
+        curl -sSL https://raw.githubusercontent.com/alex4528/m3u/refs/heads/main/z5.m3u -o z5.m3u
+
+    - name: Extract hdntl cookies
+      id: extract
+      run: |
+        # Extract all hdntl parameters from URLs in the M3U file
+        grep -oP 'hdntl=[^& ]+' z5.m3u | sort | uniq > hdntl_cookies.txt
+        echo "Extracted hdntl cookies:"
+        cat hdntl_cookies.txt
+
+        # Save output for next steps or logs
+        echo "::set-output name=hdntl_cookies::$(cat hdntl_cookies.txt | tr '\n' ' ')"
+
+    - name: Show extracted cookies
+      run: |
+        echo "Cookies extracted:"
+        cat hdntl_cookies.txt
