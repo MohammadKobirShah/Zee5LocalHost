@@ -14,7 +14,7 @@ def load_cookies():
 @app.route("/")
 def home():
     return """
-    <h2>🎬 Zee Proxy</h2>
+    <h2>🎬 Zee Proxy with Audio Support</h2>
     <p>Usage: <code>/play/&lt;groupid&gt;/&lt;channelid&gt;.m3u8</code></p>
     <p>Example: <code>/play/2105554/ZeeBanglaHDELE.m3u8</code></p>
     """
@@ -23,14 +23,14 @@ def home():
 @app.route("/play/<groupid>/<channelid>.m3u8")
 def play(groupid, channelid):
     """
-    Fetch master manifest for given groupid + channelid and rewrite all URIs to /proxy/
+    Proxy master playlist for group+channel, rewrite ALL URIs (video+audio) to /proxy/
     """
     base_url = f"https://z5ak-cmaflive.zee5.com/cmaf/live/{groupid}/{channelid}/index-connected.m3u8"
     headers = {"User-Agent": USER_AGENT, "Cookie": load_cookies()}
-
     r = requests.get(base_url, headers=headers, timeout=10)
+
     if r.status_code != 200:
-        return f"❌ Failed to fetch manifest: {r.status_code}", 500
+        return f"❌ Failed to fetch master manifest: {r.status_code}", 500
 
     playlist = r.text.splitlines()
     rewritten = []
@@ -39,7 +39,7 @@ def play(groupid, channelid):
         if line.startswith("#") or line.strip() == "":
             rewritten.append(line)
         else:
-            # Always rewrite relative URIs into /proxy/ + group/channel
+            # Force all references through /proxy/
             proxied = f"/proxy/cmaf/live/{groupid}/{channelid}/{line}"
             rewritten.append(proxied)
 
@@ -49,7 +49,9 @@ def play(groupid, channelid):
 @app.route("/proxy/<path:subpath>")
 def proxy(subpath):
     """
-    Proxy for all nested playlists + ts/m4s chunks.
+    Proxies EVERYTHING:
+      - sub-playlists (master_1080p.m3u8, master_aud.m3u8)
+      - media segments (.ts/.m4s)
     """
     url = f"https://z5ak-cmaflive.zee5.com/{subpath}"
     headers = {"User-Agent": USER_AGENT, "Cookie": load_cookies()}
@@ -58,15 +60,13 @@ def proxy(subpath):
         headers["Range"] = request.headers["Range"]
 
     r = requests.get(url, headers=headers, stream=True, timeout=15)
-    if r.status_code != 200:
-        return f"❌ Error fetching upstream: {r.status_code}", r.status_code
 
+    # If it’s a .m3u8, rewrite its references again (video or audio)
     if subpath.endswith(".m3u8"):
-        # Rewrite any nested playlists too
         playlist = r.text.splitlines()
         rewritten = []
 
-        prefix = "/".join(subpath.split("/")[:-1])  # keep groupid/channelid context
+        prefix = "/".join(subpath.split("/")[:-1])
 
         for line in playlist:
             if line.startswith("#") or line.strip() == "":
@@ -77,7 +77,7 @@ def proxy(subpath):
 
         return Response("\n".join(rewritten), content_type="application/vnd.apple.mpegurl")
 
-    # Otherwise → stream TS/M4S
+    # Otherwise proxy binary segments (.ts/.m4s audio or video)
     def generate():
         for chunk in r.iter_content(64 * 1024):
             yield chunk
@@ -86,7 +86,7 @@ def proxy(subpath):
         generate(),
         status=r.status_code,
         headers={k: v for k, v in r.headers.items()
-                 if k.lower() in ["content-type", "content-length", "accept-ranges", "content-range"]},
+                 if k.lower() in ["content-type","content-length","accept-ranges","content-range"]},
         content_type=r.headers.get("Content-Type", "video/mp2t"),
     )
 
