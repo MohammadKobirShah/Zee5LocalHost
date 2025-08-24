@@ -63,10 +63,10 @@ python3 app.py
 ```
 
 - By default it runs on:  
-  `http://127.0.0.1:5000`  
+  `http://127.0.0.1:8080`  
 
 - Test by opening in **VLC** on your VPS desktop (if GUI installed):  
-  `http://127.0.0.1:5000/play/zee_tv.m3u8`
+  `http://127.0.0.1:8080/play/zee_tv.m3u8`
 
 ---
 
