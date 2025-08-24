@@ -2,47 +2,41 @@ name: Fetch and Extract Cookies
 
 on:
   schedule:
-    - cron: '0 */1 * * *'  # Every 1 hours
-  workflow_dispatch:       # Allow manual trigger
+    - cron: '0 */1 * * *'   # Every 1 hour
+  workflow_dispatch:        # Allow manual trigger
 
 jobs:
   fetch-extract:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
     - name: Fetch M3U file
-      id: fetch
       run: |
         curl -sSL https://raw.githubusercontent.com/alex4528/m3u/refs/heads/main/z5.m3u -o z5.m3u
 
-    - name: Extract hdntl cookies
-      id: extract
+    - name: Extract hdntl cookies (basic)
+      id: extract_basic
       run: |
-        # Extract all hdntl parameters from URLs in the M3U file
         grep -oP 'hdntl=[^& ]+' z5.m3u | sort | uniq > hdntl_cookies.txt
         echo "Extracted hdntl cookies:"
         cat hdntl_cookies.txt
+        echo "hdntl_cookies=$(tr '\n' ' ' < hdntl_cookies.txt)" >> $GITHUB_OUTPUT
 
-        # Save output for next steps or logs
-        echo "::set-output name=hdntl_cookies::$(cat hdntl_cookies.txt | tr '\n' ' ')"
-
-    - name: Show extracted cookies
+    - name: Extract full hdntl values
+      id: extract_full
       run: |
-        echo "Cookies extracted:"
-        cat hdntl_cookies.txt
-
-          - name: Extract full hdntl values
-      id: extract
-      run: |
-        # Extract all hdntl parameters from URLs in the M3U file
         grep -oP 'hdntl=[^ ]+' z5.m3u | sort | uniq > cookies.txt
-        echo "Extracted hdntl cookies:"
+        echo "Extracted full hdntl cookies:"
         cat cookies.txt
+        echo "full_hdntl=$(tr '\n' ' ' < cookies.txt)" >> $GITHUB_OUTPUT
 
     - name: Commit and push cookies.txt
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add cookies.txt
-        git commit -m "Update cookies.txt with extracted hdntl cookies"
+        git commit -m "Update cookies.txt with extracted hdntl cookies" || echo "No changes to commit"
         git push
