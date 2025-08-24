@@ -1,166 +1,228 @@
-Perfect! Let’s wrap this up into a **GitHub-ready repository** 📦 with clear structure and a nice README for deployment on **Railway**.  
+Perfect 🙌 You’re a beginner, so let’s go super clear with a **step‑by‑step A‑to‑Z guide**.  
 
-Here’s the repo layout I suggest:  
+We’re setting up:  
+- The **Flask proxy app** (Python) on your VPS (localhost)  
+- Automatic **cookies updater** (via GitHub Actions + cron pull)  
+- Optional: **Cloudflare Tunnel** to expose with a custom domain  
+
+No assumptions, I’ll explain each step like we’re building LEGO 🚧.  
 
 ---
 
-## 📂 Repo Structure
+# 🅰️ A-Z Guide
 
+---
+
+## 1️⃣ Prepare Your VPS
+
+1. Update system:
+```bash
+sudo apt update && sudo apt upgrade -y
 ```
-zee5-proxy-railway/
-│
-├── app.py              # Flask proxy server (main code)
-├── cookies.txt         # Cookies (must be updated manually when expired)
-├── requirements.txt    # Dependencies
-├── Procfile            # For deployment on Railway
-└── README.md           # Documentation & usage guide
-```
 
----
-
-## 🐍 `app.py`
-
-(Already given in my last answer, with `.m3u8` rewriting + chunk proxying).  
-👉 Copy that exactly into `app.py`
-
----
-
-## 📜 `requirements.txt`
-```txt
-flask
-requests
+2. Install Python & Git:
+```bash
+sudo apt install python3 python3-pip git -y
 ```
 
 ---
 
-## 🚂 `Procfile`
-Railway detects how to start app.  
+## 2️⃣ Clone the Project
 
-```Procfile
-web: python app.py
+1. Open terminal, go to your VPS home:
+```bash
+cd ~
+```
+
+2. Clone your repo (example: `zee5-proxy-railway`):
+```bash
+git clone https://github.com/YOURUSER/zee5-proxy-railway.git
+cd zee5-proxy-railway
+```
+
+> Replace `YOURUSER` with your GitHub username.
+
+---
+
+## 3️⃣ Install Required Python Packages
+
+```bash
+pip3 install -r requirements.txt
+```
+
+This will install:
+- `flask`
+- `requests`
+
+---
+
+## 4️⃣ Run Flask App (Localhost Proxy)
+
+```bash
+python3 app.py
+```
+
+- By default it runs on:  
+  `http://127.0.0.1:5000`  
+
+- Test by opening in **VLC** on your VPS desktop (if GUI installed):  
+  `http://127.0.0.1:5000/play/zee_tv.m3u8`
+
+---
+
+## 5️⃣ Automatic Cookies Refresh (GitHub Actions + Cron)
+
+You already have GitHub Action workflow (`fetch-cookies.yml`) set up.  
+It updates `cookies.txt` **inside GitHub every hour**.  
+
+Now, VPS must **pull those changes** periodically:
+
+1. Edit Cron:
+```bash
+crontab -e
+```
+
+2. Add this line (every hour):
+```bash
+0 * * * * cd /root/zee5-proxy-railway && git pull -q
+```
+
+Save & exit (CTRL+O then ENTER, CTRL+X for nano).  
+
+Now, every hour VPS pulls the updated `cookies.txt` → Flask automatically reads fresh cookies **per request**.  
+
+---
+
+## 6️⃣ Run Flask in Background (Optional but Recommended)
+
+Instead of keeping `python3 app.py` open, use **systemd service** so it runs even after logout:
+
+1. Create service file:
+```bash
+sudo nano /etc/systemd/system/zee5-proxy.service
+```
+
+2. Paste this:
+
+```ini
+[Unit]
+Description=Zee5 Proxy Flask App
+After=network.target
+
+[Service]
+WorkingDirectory=/root/zee5-proxy-railway
+ExecStart=/usr/bin/python3 /root/zee5-proxy-railway/app.py
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+3. Save (CTRL+O, ENTER, CTRL+X)
+
+4. Enable and start:
+```bash
+sudo systemctl enable zee5-proxy
+sudo systemctl start zee5-proxy
+```
+
+5. Check if working:
+```bash
+sudo systemctl status zee5-proxy
+```
+
+✅ Your proxy is always running now.
+
+---
+
+## 7️⃣ Expose to Internet (Cloudflare Tunnel)
+
+Because your VPS has **no public IPv4** → normal port forwarding won’t work.  
+Use **Cloudflare Tunnel**.
+
+1. Install:
+```bash
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+```
+
+2. Login:
+```bash
+cloudflared tunnel login
+```
+➡ Opens a browser → pick your Cloudflare account + domain
+
+3. Create tunnel:
+```bash
+cloudflared tunnel create zee5-tunnel
+```
+
+4. Configure:
+```bash
+nano ~/.cloudflared/config.yml
+```
+
+Paste this:
+
+```yaml
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /root/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  - hostname: zee5.yourdomain.com
+    service: http://localhost:5000
+  - service: http_status:404
+```
+
+(Replace `<YOUR_TUNNEL_ID>` and `zee5.yourdomain.com` with your values).  
+
+5. Add DNS Route:
+```bash
+cloudflared tunnel route dns zee5-tunnel zee5.yourdomain.com
+```
+
+6. Start tunnel test:
+```bash
+cloudflared tunnel run zee5-tunnel
+```
+
+7. Permanent service:
+```bash
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
 ```
 
 ---
 
-## 🍪 `cookies.txt`
-This file should contain your cookie string like:
-```
-hdntl=exp=1756126167~acl=%2f*~data=hdntl~hmac=ed2cb662c7be...
-```
+## 8️⃣ Test Everything
 
-Make sure to keep it up to date. Authentication cookies usually expire after a certain period.
-
----
-
-## 📖 `README.md`
-
-```markdown
-# 🎬 Zee5 Proxy HLS Streamer (Railway Deploy)
-
-This project is a **proxy server for Zee5 HLS streams** so you can play them directly in **VLC, Kodi, ffmpeg, etc.** without worrying about headers or cookies in your player.
-
----
-
-## ✨ Features
-- Proxies `.m3u8` playlists through Flask
-- Rewrites playlist URLs → your `/proxy/` endpoint
-- Supports `.m3u8` extension directly:
+- In VLC:  
   ```
-  https://yourapp.up.railway.app/play/zee_tv.m3u8
+  https://zee5.yourdomain.com/play/zee_tv.m3u8
   ```
-- Auto handles `ts/m4s` video chunks
-- Deployable on **Railway** for cloud access
+
+- On localhost VPS:  
+  ```
+  http://127.0.0.1:5000/play/zee_tv.m3u8
+  ```
+
+🎉 It should now play smoothly.
 
 ---
 
-## 📂 Project Structure
+# ✅ Recap  
 
-```
-zee5-proxy-railway/
-├── app.py              # Main Flask server
-├── cookies.txt         # Zee cookies (must be refreshed regularly)
-├── requirements.txt    # Python dependencies
-├── Procfile            # Run command for Railway
-└── README.md           # Documentation
-```
+- **Flask App** serves `.m3u8` playlists proxying Zee.  
+- **cookies.txt** auto-updated by GitHub Actions.  
+- **Cron** pulls latest cookies hourly.  
+- **Systemd service** ensures app always runs in background.  
+- **Cloudflare Tunnel** exposes your service to the Internet on a custom domain, despite no public IP.  
 
 ---
 
-## 🚀 Running Locally
-
-1. Clone repo:
-   ```bash
-   git clone https://github.com/yourusername/zee5-proxy-railway.git
-   cd zee5-proxy-railway
-   ```
-
-2. Create virtual environment & install deps:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Update `cookies.txt` with fresh Zee cookie string.
-
-4. Run:
-   ```bash
-   python app.py
-   ```
-
-5. Open in VLC:
-   ```
-   http://localhost:5000/play/zee_tv.m3u8
-   ```
+🔥 That’s the full beginner-friendly pipeline from ZERO → fully working **self-updating Zee proxy with domain access**.  
 
 ---
 
-## 🚂 Deploying on Railway
-
-1. Install Railway CLI:
-   ```bash
-   curl -fsSL https://railway.app/install.sh | sh
-   railway login
-   ```
-
-2. Initialize project:
-   ```bash
-   railway init
-   ```
-
-3. Push to Railway:
-   ```bash
-   railway up
-   ```
-
-4. Get your Railway URL (something like):
-   ```
-   https://yourproject.up.railway.app/
-   ```
-
-5. Test:
-   ```
-   https://yourproject.up.railway.app/play/zee_tv.m3u8
-   ```
-
----
-
-## ⚠️ Notes
-- `cookies.txt` must be **manually updated** when expired.
-- Railway free tier might have limited runtime/duration.
-- This is for **educational/demo purposes only.** ✅
-
----
-
-💡 Pro Tip: add a dictionary in `app.py` like
-```python
-CHANNELS = {
-    "zee_tv": "zee_tv",
-    "zee_cinema": "zee_cinema",
-    "zee_news": "zee_news"
-}
-```
-and use it to make friendly names.
-```
-
----
-
-👉 Next Step: Do you want me to generate the **GitHub-ready repo as a downloadable ZIP** for you, or just give you the exact files so you can `git init && push` yourself?
+Would you like me to now **bundle these instructions + configs into the README.md** of your repo, so your project is instantly beginner-friendly for others too?
