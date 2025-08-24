@@ -5,7 +5,7 @@ from flask import Flask, Response, request
 app = Flask(__name__)
 
 BASE_URL = "https://z5ak-cmaflive.zee5.com/cmaf/live/2105554/{channelid}/index-connected.m3u8"
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 ygx/69.1 Safari/537.36"
 COOKIES_FILE = "cookies.txt"
 
 
